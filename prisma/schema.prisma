@@ -13,6 +13,15 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Profile {
   userId    String   @id
   data      Json
@@ -84,5 +93,6 @@ model ChatHistory {
   messages  Json
   updatedAt DateTime @updatedAt
 
+  @@unique([userId, issueKey])
   @@index([userId, issueKey])
 }

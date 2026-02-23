@@ -1,4 +1,3 @@
-// @ts-nocheck
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -9,26 +8,99 @@ import multer from "multer";
 import FormData from "form-data";
 import Stripe from "stripe";
 import fetch from "node-fetch";
-import { Request } from "express-serve-static-core";
-import {prisma} from "./lib/prisma";
+import { Request, Response } from "express";
+import { prisma } from "./lib/prisma";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const app = express();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// Helper to get userId (in a real app, this would come from JWT/Session)
-const getUserId = (req: Request<{}, any, any, Record<string, any>>) => req.headers['x-user-id'] || 'default-user';
+// JWT helpers
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+const signToken = (userId: string) =>
+  jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "7d" });
+
+// Helper to get userId from Authorization: Bearer <token> (fallback to x-user-id for legacy)
+const getUserId = (req: Request) => {
+  const auth = req.headers["authorization"] as string | undefined;
+  if (auth?.startsWith("Bearer ")) {
+    const token = auth.slice("Bearer ".length).trim();
+    try {
+      const payload = jwt.verify(token, JWT_SECRET) as { sub?: string };
+      if (payload?.sub) return payload.sub;
+    } catch {}
+  }
+  return (req.headers["x-user-id"] as string) || "default-user";
+};
 
 app.use(cors());
 app.use(express.json());
 
+// Auth routes
+app.post("/auth/signup", async (req: Request, res: Response) => {
+  try {
+    const { email, password, name } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Check if user exists
+    const existing = await (prisma as any).user?.findUnique?.({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ error: "Email already in use" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const user = await prisma.user?.create?.({
+      data: { email, password: hash, name: name ?? null },
+    });
+
+    // If Prisma Client hasn't been generated yet, user may be undefined
+    if (!user) {
+      return res.status(503).json({
+        error: "Prisma Client not generated yet. Please run migrations and generation.",
+      });
+    }
+
+    const token = signToken(user.id);
+    res.status(201).json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+app.post("/auth/signin", async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    const user = await prisma.user?.findUnique?.({ where: { email } });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+    const token = signToken(user.id);
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 // 3.1 User Profile & Assessment
-app.get("/profile", async (req, res) => {
+app.get("/profile", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const profile = await prisma.profile.findUnique({ where: { userId } });
-  res.json(profile?.data || {});
+  res.json((profile?.data as any) || {});
 });
 
-app.post("/profile", async (req, res) => {
+app.post("/profile", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const profile = await prisma.profile.upsert({
     where: { userId },
@@ -43,7 +115,7 @@ app.post("/profile", async (req, res) => {
   res.json(profile.data);
 });
 
-app.put("/profile", async (req, res) => {
+app.put("/profile", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const profile = await prisma.profile.upsert({
     where: { userId },
@@ -58,13 +130,13 @@ app.put("/profile", async (req, res) => {
   res.json(profile.data);
 });
 
-app.get("/assessment", async (req, res) => {
+app.get("/assessment", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const assessment = await prisma.assessment.findUnique({ where: { userId } });
-  res.json(assessment?.data || {});
+  res.json((assessment?.data as any) || {});
 });
 
-app.post("/assessment", async (req, res) => {
+app.post("/assessment", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   await prisma.assessment.upsert({
     where: { userId },
@@ -76,16 +148,16 @@ app.post("/assessment", async (req, res) => {
 
 // 3.2 Activity Tracking
 // Mood
-app.get("/mood", async (req, res) => {
+app.get("/mood", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const moods = await prisma.mood.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' }
   });
-  res.json(moods.map(m => ({ id: m.id, createdAt: m.createdAt, ...m.data })));
+  res.json(moods.map(m => ({ id: m.id, createdAt: m.createdAt, ...(m.data as any) })));
 });
 
-app.post("/mood", async (req, res) => {
+app.post("/mood", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const mood = await prisma.mood.create({
     data: {
@@ -93,10 +165,10 @@ app.post("/mood", async (req, res) => {
       data: req.body
     }
   });
-  res.json({ id: mood.id, createdAt: mood.createdAt, ...(mood.data ?? {}) });
+  res.json({ id: mood.id, createdAt: mood.createdAt, ...((mood.data as any) ?? {}) });
 });
 
-app.delete("/mood/:id", async (req, res) => {
+app.delete("/mood/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   try {
     await prisma.mood.delete({
@@ -109,16 +181,16 @@ app.delete("/mood/:id", async (req, res) => {
 });
 
 // Journaling
-app.get("/journal", async (req, res) => {
+app.get("/journal", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const journals = await prisma.journal.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' }
   });
-  res.json(journals.map(j => ({ id: j.id, createdAt: j.createdAt, updatedAt: j.updatedAt, ...j.data })));
+  res.json(journals.map(j => ({ id: j.id, createdAt: j.createdAt, updatedAt: j.updatedAt, ...(j.data as any) })));
 });
 
-app.post("/journal", async (req, res) => {
+app.post("/journal", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const journal = await prisma.journal.create({
     data: {
@@ -126,23 +198,23 @@ app.post("/journal", async (req, res) => {
       data: req.body
     }
   });
-  res.json({ id: journal.id, createdAt: journal.createdAt, updatedAt: journal.updatedAt, ...journal.data });
+  res.json({ id: journal.id, createdAt: journal.createdAt, updatedAt: journal.updatedAt, ...(journal.data as any) });
 });
 
-app.put("/journal/:id", async (req, res) => {
+app.put("/journal/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   try {
     const journal = await prisma.journal.update({
       where: { id: req.params.id, userId },
       data: { data: req.body }
     });
-    res.json({ id: journal.id, createdAt: journal.createdAt, updatedAt: journal.updatedAt, ...journal.data });
+    res.json({ id: journal.id, createdAt: journal.createdAt, updatedAt: journal.updatedAt, ...(journal.data as any) });
   } catch (e) {
     res.status(404).json({ error: "Journal entry not found" });
   }
 });
 
-app.delete("/journal/:id", async (req, res) => {
+app.delete("/journal/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   try {
     await prisma.journal.delete({
@@ -155,14 +227,14 @@ app.delete("/journal/:id", async (req, res) => {
 });
 
 // Stress Management
-app.get("/stress/kit", async (req, res) => {
+app.get("/stress/kit", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const kit = await prisma.stressKit.findUnique({ where: { userId } });
   const defaultKit = { triggers: [], helpfulActions: [], people: [] };
-  res.json(kit?.data || defaultKit);
+  res.json((kit?.data as any) || defaultKit);
 });
 
-app.put("/stress/kit", async (req, res) => {
+app.put("/stress/kit", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const kit = await prisma.stressKit.upsert({
     where: { userId },
@@ -172,16 +244,16 @@ app.put("/stress/kit", async (req, res) => {
   res.json(kit.data);
 });
 
-app.get("/stress/history", async (req, res) => {
+app.get("/stress/history", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const history = await prisma.stressHistory.findMany({
     where: { userId },
     orderBy: { date: 'desc' }
   });
-  res.json(history.map(h => ({ ...h.data, date: h.date })));
+  res.json(history.map(h => ({ ...(h.data as any), date: h.date })));
 });
 
-app.post("/stress/history", async (req, res) => {
+app.post("/stress/history", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const entry = await prisma.stressHistory.create({
     data: {
@@ -189,20 +261,20 @@ app.post("/stress/history", async (req, res) => {
       data: req.body
     }
   });
-  res.json({ ...entry.data, date: entry.date });
+  res.json({ ...(entry.data as any), date: entry.date });
 });
 
 // Mindfulness
-app.get("/mindfulness", async (req, res) => {
+app.get("/mindfulness", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const mindfulness = await prisma.mindfulness.findMany({
     where: { userId },
     orderBy: { dateISO: 'desc' }
   });
-  res.json(mindfulness.map(m => ({ id: m.id, dateISO: m.dateISO, ...m.data })));
+  res.json(mindfulness.map(m => ({ id: m.id, dateISO: m.dateISO, ...(m.data as any) })));
 });
 
-app.post("/mindfulness", async (req, res) => {
+app.post("/mindfulness", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const entry = await prisma.mindfulness.create({
     data: {
@@ -210,20 +282,20 @@ app.post("/mindfulness", async (req, res) => {
       data: req.body
     }
   });
-  res.json({ id: entry.id, dateISO: entry.dateISO, ...entry.data });
+  res.json({ id: entry.id, dateISO: entry.dateISO, ...(entry.data as any) });
 });
 
 // Sleep
-app.get("/sleep", async (req, res) => {
+app.get("/sleep", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const sleep = await prisma.sleep.findMany({
     where: { userId },
     orderBy: { createdAtISO: 'desc' }
   });
-  res.json(sleep.map(s => ({ id: s.id, createdAtISO: s.createdAtISO, ...s.data })));
+  res.json(sleep.map(s => ({ id: s.id, createdAtISO: s.createdAtISO, ...(s.data as any) })));
 });
 
-app.post("/sleep", async (req, res) => {
+app.post("/sleep", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const entry = await prisma.sleep.create({
     data: {
@@ -231,10 +303,10 @@ app.post("/sleep", async (req, res) => {
       data: req.body
     }
   });
-  res.json({ id: entry.id, createdAtISO: entry.createdAtISO, ...entry.data });
+  res.json({ id: entry.id, createdAtISO: entry.createdAtISO, ...(entry.data as any) });
 });
 
-app.delete("/sleep/:id", async (req, res) => {
+app.delete("/sleep/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   try {
     await prisma.sleep.delete({
@@ -247,48 +319,55 @@ app.delete("/sleep/:id", async (req, res) => {
 });
 
 // 3.3 Chat History Management
-app.get("/chat/history/:issueKey", async (req, res) => {
+app.get("/chat/history/:issueKey", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { issueKey } = req.params;
-  const history = await prisma.chatHistory.findFirst({
-    where: { userId, issueKey }
+  const history = await prisma.chatHistory.findUnique({
+    where: {
+      userId_issueKey: { userId, issueKey }
+    }
   });
-  res.json(history?.messages || []);
+  res.json((history?.messages as any) || []);
 });
 
-app.post("/chat/history/:issueKey", async (req, res) => {
+app.post("/chat/history/:issueKey", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { issueKey } = req.params;
   const message = req.body;
 
-  const existing = await prisma.chatHistory.findFirst({
-    where: { userId, issueKey }
+  const existing = await prisma.chatHistory.findUnique({
+    where: {
+      userId_issueKey: { userId, issueKey }
+    }
   });
 
-  if (existing) {
-    const updatedMessages = [...(existing.messages || []), message];
-    await prisma.chatHistory.update({
-      where: { id: existing.id },
-      data: { messages: updatedMessages }
-    });
-  } else {
-    await prisma.chatHistory.create({
-      data: {
-        userId,
-        issueKey,
-        messages: [message]
-      }
-    });
-  }
+  const updatedMessages = [...((existing?.messages as any[]) || []), message];
+
+  await prisma.chatHistory.upsert({
+    where: {
+      userId_issueKey: { userId, issueKey }
+    },
+    update: {
+      messages: updatedMessages
+    },
+    create: {
+      userId,
+      issueKey,
+      messages: [message]
+    }
+  });
+
   res.json(message);
 });
 
-app.delete("/chat/history/:issueKey", async (req, res) => {
+app.delete("/chat/history/:issueKey", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const { issueKey } = req.params;
-  await prisma.chatHistory.deleteMany({
-    where: { userId, issueKey }
-  });
+  await prisma.chatHistory.delete({
+    where: {
+      userId_issueKey: { userId, issueKey }
+    }
+  }).catch(() => {}); // Ignore if doesn't exist
   res.sendStatus(204);
 });
 
@@ -343,15 +422,7 @@ Provide practical, compassionate coping steps. Avoid diagnosis.
 If self-harm intent is present, encourage immediate local emergency help / crisis resources.
 `.trim();
 
-    const formattedMessages = [
-      { role: "system", content: instructions },
-      ...messages.map((m) => ({
-        role: m.sender === "user" ? "user" : "assistant",
-        content: m.text,
-      })),
-    ];
-
-    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -359,7 +430,9 @@ If self-harm intent is present, encourage immediate local emergency help / crisi
       },
       body: JSON.stringify({
         model: "gpt-5",
-        messages: formattedMessages,
+        instructions,
+        input: messages,
+        store: false,
       }),
     });
 
@@ -368,10 +441,11 @@ If self-harm intent is present, encourage immediate local emergency help / crisi
       return res.status(resp.status).json({ error: errText });
     }
 
-    const data = await resp.json();
+    const data: any = await resp.json();
     const outputText =
-      data.choices?.[0]?.message?.content ??
-      "Sorry — I couldn’t generate a response.";
+        data?.output_text ??
+        data?.output?.find((it: { type: string; }) => it.type === "message")?.content?.[0]?.text ??
+        "Sorry — I couldn’t generate a response.";
 
     res.json({ text: outputText });
   } catch (e) {
