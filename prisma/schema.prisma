@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  userId    String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model Assessment {
+  userId    String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model Mood {
+  id        String   @id @default(uuid())
+  userId    String
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Journal {
+  id        String   @id @default(uuid())
+  userId    String
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model StressKit {
+  userId    String   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+model StressHistory {
+  id     String   @id @default(uuid())
+  userId String
+  data   Json
+  date   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Mindfulness {
+  id      String   @id @default(uuid())
+  userId  String
+  data    Json
+  dateISO DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Sleep {
+  id           String   @id @default(uuid())
+  userId       String
+  data         Json
+  createdAtISO DateTime @default(now())
+
+  @@index([userId])
+}
+
+model ChatHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  issueKey  String
+  messages  Json
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, issueKey])
+}

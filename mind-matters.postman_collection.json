@@ -1,0 +1,383 @@
+{
+	"info": {
+		"_postman_id": "8f87b8d4-53c2-4e0e-9f3b-6e4e7e4e7e4e",
+		"name": "Mind-Matters API",
+		"description": "API collection for the Mind-Matters support app. \n\n### Authentication\nMost endpoints require a `x-user-id` header to identify the user. If not provided, it defaults to 'default-user'.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "User Profile & Assessment",
+			"item": [
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john.doe@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/profile",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"profile"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Activity Tracking",
+			"item": [
+				{
+					"name": "Mood",
+					"item": [
+						{
+							"name": "Get Moods",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "x-user-id",
+										"value": "user_123",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/mood",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"mood"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Log Mood",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-user-id",
+										"value": "user_123",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"value\": 4,\n    \"note\": \"Feeling good today\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/mood",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"mood"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Journaling",
+					"item": [
+						{
+							"name": "Get Journals",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "x-user-id",
+										"value": "user_123",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/journal",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"journal"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Journal Entry",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "x-user-id",
+										"value": "user_123",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"title\": \"Morning Reflection\",\n    \"content\": \"Had a peaceful morning walk.\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/journal",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"journal"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Stress Management",
+			"item": [
+				{
+					"name": "Get Stress Kit",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/stress/kit",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"stress",
+								"kit"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Stress Kit",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"triggers\": [\"work stress\", \"lack of sleep\"],\n    \"helpfulActions\": [\"deep breathing\", \"walk\"],\n    \"people\": [\"best friend\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/stress/kit",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"stress",
+								"kit"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Chat & AI",
+			"item": [
+				{
+					"name": "Chat with AI",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"issueTitle\": \"Feeling anxious\",\n    \"issueTags\": [\"anxiety\", \"stress\"],\n    \"messages\": [\n        {\n            \"sender\": \"user\",\n            \"text\": \"I'm feeling a bit overwhelmed today.\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/chat",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"chat"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Chat History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/chat/history/anxiety-issue",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"chat",
+								"history",
+								"anxiety-issue"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payments",
+			"item": [
+				{
+					"name": "Create Checkout Session",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-user-id",
+								"value": "user_123",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"mode\": \"payment\",\n    \"currency\": \"usd\",\n    \"price_data\": {\n        \"name\": \"Premium Support\",\n        \"unit_amount\": 2900\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/create-checkout-session",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"create-checkout-session"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:4000",
+			"type": "string"
+		}
+	]
+}
