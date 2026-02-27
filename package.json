@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "npx tsx server.ts",
+    "dev": "npx tsx src/server.ts",
     "build": "npx prisma generate && npx tsc",
     "deploy": "npx prisma migrate deploy",
     "generate": "npx prisma generate",
@@ -25,7 +25,7 @@
     "express": "^4.19.2",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "pg": "^8.18.0",
     "stripe": "^20.1.2",
